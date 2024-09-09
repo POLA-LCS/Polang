@@ -1,0 +1,28 @@
+
+mac std::list.init.fill 2
+    mac std::list.add 0
+        add std::list.list std::list.value
+    end
+    set std::list.list list
+    set std::list.value $2
+    call for 0 $1 std::list.add
+    ret std::list.list
+    del std::list.list std::list.value std::list.times std::list.add
+end
+
+mac std::list.init 1
+    zet std::list.init.value call std::list.init.fill $1 none
+    ret std::list.init.value
+    del std::list.init.value
+end
+
+mac std::range.code 0
+    add std::range.list for.i
+end
+
+mac std::range 2
+    set std::range.list []
+    call for $1 $2 std::range.code
+    ret std::range.list
+    del std::range.list for.i
+end

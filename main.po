@@ -1,0 +1,12 @@
+mac Persona 3
+    set $1.nombre $2
+    set $1.edad $2
+
+    mac $1.mostrar 0
+        out $1.nombre . $1.edad
+    end
+end
+
+call Persona p 'Pepe' 18
+
+call p.mostrar
