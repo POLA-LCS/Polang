@@ -1,4 +1,5 @@
 # Polang - A Simple Macro-Based Language
+## WITH BUGS
 
 ## Introduction
 Polang is a lightweight interpreted programming language built around a macro system. The language allows for basic operations, variable manipulation, and macro-based control flow structures like loops and conditionals. Polang supports dynamic typing, handling various data types such as numbers, strings, and lists.
@@ -22,14 +23,14 @@ Polang supports the following data types:
 - **Boolean**: Represented as `1` for true and `0` for false.
 
 ### Special Constants:
-- `STRING`: Represents an empty string.
-- `NUMBER`: Represents `0.0`.
-- `LIST`: Represents an empty list.
-- `NONE`: Represents no value.
-- `'true'`: A boolean true (value 1).
-- `'false'`: A boolean false (value 0).
-- `'POLANG_VERSION'`: The current version of Polang.
-- `'NICE'`: Special constant set to 69.
+- `string`: Represents an empty string.
+- `number`: Represents `0.0`.
+- `list`: Represents an empty list.
+- `none`: Represents no value.
+- `true`: A boolean true (value 1).
+- `false`: A boolean false (value 0).
+- `POLANG_VERSION`: The current version of Polang.
+- `NICE`: Special constant set to 69.
 
 ## Built-in Functions
 Polang offers several built-in instructions (functions), each with specific behavior.
