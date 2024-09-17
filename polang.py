@@ -13,7 +13,7 @@ def get_number(number: str) -> (Number | None):
     except ValueError:
         return None
 
-def check_variable(instruction: str, data: Data, inverse = False) -> Value:
+def check_variable(instruction: str, data: str | Data) -> Value:
     if isinstance(data, str):
         var = memory.get(data)
         assert var is not None, NAME_ERROR(data, instruction)
@@ -82,7 +82,7 @@ memory_func: dict[str, Macro] = {
 }
 
 # SET
-def ins_set_variable(name: str, data: Data) -> Value | None:
+def inst_set_variable(name: str, data: Data) -> Value | None:
     left = memory.get(name)
     right = check_variable('SET', data)
     if left is None:
@@ -94,46 +94,50 @@ def ins_set_variable(name: str, data: Data) -> Value | None:
     return Value(memory[name].type, True)
 
 # DEF
-def ins_def_constant(name: str, data: Data) -> Value:
-    ins_set_variable(name, data)
+def inst_def_constant(name: str, data: Data) -> Value:
+    inst_set_variable(name, data)
     memory[name].const = True
     return Value(name)
 
 # ADD
-def ins_add_value(name: str, add_value: Data):
+def inst_add_value(name: str, *add_value: Data):
     left = check_variable('ADD', name)
     assert not left.const, LOGIC_ERROR('Constant assignment', f'Trying to add a value to a constant: {left}', 'ADD') 
-    right = check_variable('ADD', add_value)
+    right = [check_variable('ADD', av) for av in add_value]
 
-    ins_return = left.value # Cach the last value before addition
+    inst_return = left.value # Cach the last value before addition
 
     if left.type == NUMBER:
-        if right.type == NUMBER:
-            left.value += right.value
-        elif right.type in [STRING, LIST]:
-            left.value += len(right.value)
-        else:
-            RAISE(TYPE_ERROR(left, right, 'ADD'))
+        for val in right:
+            if val.type == NUMBER:
+                left.value += val.value
+            elif val.type in [STRING, LIST]:
+                left.value += len(val.value)
+            else:
+                RAISE(TYPE_ERROR(left, val, 'ADD'))
     elif left.type == STRING:
-        if right.type == NONE:
-            left.value += ' '  
-        elif right.type == STRING:
-            left.value += right.value
-        elif right.type == NUMBER:
-            left.value += str(right.value)
-        else:
-            RAISE(TYPE_ERROR(left, right, 'ADD'))
+        for val in right:
+            if val.type == NONE:
+                left.value += ' '  
+            elif val.type == STRING:
+                left.value += val.value
+            elif val.type == NUMBER:
+                left.value += str(val.value)
+            else:
+                RAISE(TYPE_ERROR(left, right, 'ADD'))
     elif left.type == LIST:
-        left.value.append(right.value)
-    return ins_return
+        last = left.value
+        left.value = []
+        left.value = last + [val.value for val in right]
+    return inst_return
 
 # SUB
-def ins_sub_value(name: str, sub_value: Data):
+def inst_sub_value(name: str, sub_value: Data):
     left = check_variable('SUB', name)
     assert not left.const, LOGIC_ERROR('Constant assignment', f'Trying to substract a value to a constant: {name}', 'SUB') 
     right = check_variable('SUB', sub_value)
     
-    ins_return = left.value # Catch the last value before substraction
+    inst_return = left.value # Catch the last value before substraction
     
     if left.type == NUMBER:
         if right.type == NUMBER:
@@ -156,10 +160,10 @@ def ins_sub_value(name: str, sub_value: Data):
             left.value = left.value[:-len(right.value)]
         else:
             RAISE(TYPE_ERROR(left, right, 'SUB'))
-    return ins_return
+    return inst_return
     
 # SUM
-def ins_sum_values(*data: Data):
+def inst_sum_values(*data: Data):
     sum_type = None
     data = check_variable_list('SUM', *data)
     for d in data:
@@ -178,7 +182,7 @@ def ins_sum_values(*data: Data):
     return sum_value
     
 # OUT
-def ins_stdout(*data: Data):
+def inst_stdout(*data: Data):
     if len(data) == 0:
         print()
     
@@ -202,7 +206,7 @@ def ins_stdout(*data: Data):
         print_value(d)
 
 # EXIT
-def ins_exit_program(exit_code: Data | None = None):
+def inst_exit_program(exit_code: Data | None = None):
     exit_code = check_variable('EXIT', exit_code)
     global RUNNING, EXIT_CODE
     RUNNING = False
@@ -210,27 +214,27 @@ def ins_exit_program(exit_code: Data | None = None):
     EXIT_CODE = int(exit_code.value)
 
 # TYPE    
-def ins_typeof(data: Data):
+def inst_typeof(data: Data):
     data = check_variable('TYPE', data)
     return data.type
         
-# EQU
-def ins_is_equal(left: Data, right: Data):
-    left, right = check_variable_list('EQU', left, right)
+# EQ
+def inst_is_equal(left: Data, right: Data):
+    left, right = check_variable_list('EQ', left, right)
     return int(left.value == right.value)
 
-# LSS
-def ins_is_less(left: Data, right: Data):
-    left, right = check_variable_list('LSS', left, right)
+# LT
+def inst_is_less(left: Data, right: Data):
+    left, right = check_variable_list('LT', left, right)
     return int(left.value < right.value)
 
-# GTR
-def ins_is_greater(left: Data, right: Data):
-    left, right = check_variable_list('GTR', left, right)
+# GT
+def inst_is_greater(left: Data, right: Data):
+    left, right = check_variable_list('GT', left, right)
     return int(left.value > right.value)
     
 # PUT
-def ins_stdin(name: str):
+def inst_stdin(name: str):
     var = check_variable('PUT', name)
     try:
         input_value = input()
@@ -238,17 +242,17 @@ def ins_stdin(name: str):
         RAISE(ERROR_FORMAT('INPUT ', 'PUT', 'Keyboard interruption', 'perhaps you pressed Ctrl + C?'))
     if var.type == NUMBER:
         assert (number_compatible := get_number(input_value)) is not None, TYPE_ERROR(var, Value(input_value), 'PUT INS')
-        ins_set_variable(name, Value(number_compatible))
+        inst_set_variable(name, Value(number_compatible))
     elif var.type == LIST:
         chunks = input_value.split(' ')
         tokens = [force_value(lex_chunk(value)) for value in chunks]
         for value in tokens:
-            ins_add_value(name, value)
+            inst_add_value(name, value)
     else:
-        ins_set_variable(name, Value(input_value))  
+        inst_set_variable(name, Value(input_value))  
 
 # USE
-def ins_use_polang_file(line: int, module: str):
+def inst_use_polang_file(line: int, module: str):
     global file_content
     assert module.endswith(EXTENSION), PARAM_ERROR('Input must be a polang file', 'USE')
     with open(module, 'r') as polang_file:
@@ -256,12 +260,14 @@ def ins_use_polang_file(line: int, module: str):
         file_content = file_content[:line + 1] + [''] + polang_file.read().split('\n') + file_content[line:]
 
 # ZET
-def ins_set_variable_call(name: str, func_name: str, *args):
-    assert (func := instructions.get(func_name)) is not None, NAME_ERROR(func_name, 'ZET')
-    return ins_set_variable(name, force_value(func[1](*args)))
+def inst_set_variable_call(name: str, func_name: str, *args):
+    if (func := instructions.get(func_name)):
+        return inst_set_variable(name, force_value(func[1](*args)))
+    else:
+        return inst_set_variable(name, force_value(inst_call_macro(func_name, *args)))
     
 # DEL
-def ins_delete(*names: str):
+def inst_delete(*names: str):
     for n in names:
         if not isinstance(n, str):
             warnings.append(f'Trying to DELETE not a name: {n}') 
@@ -273,13 +279,13 @@ def ins_delete(*names: str):
             warnings.append(f'Trying to DELETE an unknown name: {n}')
 
 # ERR
-def ins_error(*args):
+def inst_error(*args):
     RAISE(ERROR_FORMAT(f'{args[0]} ', *args[1:]))
 
-# FUN 
-def ins_macro(name: str, cant_arguments: Value | None):
-    assert name not in memory, ERROR_FORMAT('NAME ', 'FUN DECLARATION', f'There\'s already a variable called', f'{name}')
-    assert name not in memory_func, ERROR_FORMAT('NAME ', 'FUN DECLARATION', f'Macro already exists', f'{name}')
+# MAC 
+def inst_macro(name: str, cant_arguments: Value | None):
+    assert name not in memory, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'There\'s already a variable called', f'{name}')
+    assert name not in memory_func, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'Macro already exists', f'{name}')
     
     memory_func[name] = Macro(
         cant_arguments.value if cant_arguments is not None else -1,
@@ -290,7 +296,7 @@ def ins_macro(name: str, cant_arguments: Value | None):
     SCOPE_STACK.append(name)
     
 # END
-def ins_end_macro():
+def inst_end_macro():
     global SCOPE_STACK
     
     if get_active_scope() is not None:
@@ -304,7 +310,7 @@ import re
 def format_line(line: str, func_name: str, *args: Value):
     chunk_list = line.split(' ')
     for c, chunk in enumerate(chunk_list):
-        if (match := re.match(r'\$(\d+)*', chunk)) is not None:
+        if (match := re.match(r'\$(\d+)', chunk)) is not None:
             for g in match.groups():
                 if (template_num := int(g)) > len(args) and memory_func[func_name][0] > -1:
                     RAISE(ERROR_FORMAT('FUNCTION ', 'FUNCTION EXECUTION', 'Template argument exceed the total of arguments'))
@@ -317,16 +323,18 @@ def format_line(line: str, func_name: str, *args: Value):
                             replace_arg = replace_arg.value
                         
                     chunk_list[c] = chunk.replace(f'${template_num}', f'{replace_arg}')
-                except IndexError as ierr:
+                except IndexError:
                     chunk_list[c] = ''
                     warnings.append(f'Argument ${template_num} of {func_name} not provided.')
+        elif (match := re.match(r'\$\*', chunk)) is not None:
+            chunk_list[c] = chunk.replace('$*', f'{' '.join([str(arg) for arg in args])}')
     formated = ''
     for c in chunk_list:
         formated += str(c) + ' '
     return formated
                 
 # CALL
-def ins_call_macro(name: str, *argv):
+def inst_call_macro(name: str, *argv):
     assert (func := memory_func.get(name)) is not None, ERROR_FORMAT('FUNC ', 'CALL', None, f'Object is not callable: {name}')
     if func.argc > -1 and len(argv) > func.argc:
         PARAM_ERROR('Too many arguments in user function call', f'{name}', func.argc, len(argv))
@@ -336,15 +344,22 @@ def ins_call_macro(name: str, *argv):
             return ret
     return None
     
-# MEM
-def ins_get_memory_value():
+# MEMORY
+def inst_get_memory_value():
     memory_str = ''
     for key, val in memory.items():
         memory_str += f'{key} -> {val}\n'
-    return memory_str
+    return Value(memory_str, True)
+
+# MEMORY.FUNCTIONS
+def inst_get_memory_functions():
+    func_str = ''
+    for key, val in memory_func.items():
+        func_str += f'{key} -> {val}\n'
+    return Value(func_str, True)
 
 # INDEX
-def ins_get_index_value(sizeable: Data, index_value: Data):
+def inst_get_index_value(sizeable: Data, index_value: Data):
     sizeable = check_variable('INDEX', sizeable)
     assert sizeable.type != NONE, ERROR_FORMAT('NONE ', 'INDEX', 'Index access', 'none type variable does not support index.')
     index_value = check_variable('INDEX', index_value)
@@ -358,7 +373,7 @@ def ins_get_index_value(sizeable: Data, index_value: Data):
         RAISE(INDEX_ERROR(index_value.value, 'INDEX OP'))
 
 # ASSIGN
-def ins_set_index_value(sizeable: Data, index_value: Data, new_value: Data):
+def inst_set_index_value(sizeable: Data, index_value: Data, new_value: Data):
     sizeable = check_variable('INDEX', sizeable)
     assert not sizeable.const, RAISE(ERROR_FORMAT('CONST ', 'ASSIGN', None, f'Cannot re assign a constant value: {sizeable}.'))
     assert sizeable.type in [LIST, STRING], ERROR_FORMAT('INDEX ', 'ASSIGN', 'Index access', f'Value type does not support item assignment: {sizeable}')
@@ -375,7 +390,7 @@ def ins_set_index_value(sizeable: Data, index_value: Data, new_value: Data):
         RAISE(INDEX_ERROR(index_value.value, 'ASSIGN'))
 
 # IF / NOT
-def ins_eval_if(negate: bool, expression_value: Data, func: str, *args):
+def inst_eval_if(negate: bool, expression_value: Data, func: str, *args):
     expression_value = check_variable('IF EVAL', expression_value)
     assert (return_function := instructions.get(func)) is not None, NAME_ERROR(func, 'NOT CONDITION' if negate else 'IF CONDITION')
     if (argc := len(args)) > return_function[0] and return_function[0] > -1:
@@ -389,9 +404,15 @@ def ins_eval_if(negate: bool, expression_value: Data, func: str, *args):
         return_function[1](*args)
 
 # RET
-def ins_return(name_value: Data) -> Value:
-    name_value = check_variable('RETURN', name_value)
-    return name_value 
+def inst_return(*name_value: str | Data) -> Value:
+    name = name_value
+    name_value = check_variable('RETURN', name[0])
+    inst_delete(*name)
+    return name_value
+
+# EXIST
+def inst_variable_exist(*names: str) -> int:
+    return Value(int(all([n in memory for n in names])))
 
 # VERIFIES IF A CHUNK IS SOMETHING
 def lex_chunk(chunk: str) -> (Value | str):
@@ -408,62 +429,63 @@ def lex_chunk(chunk: str) -> (Value | str):
 
 instructions: dict[str, tuple[int, function]] = {
     # setters
-    'set':   (2, ins_set_variable),
-    'def':   (2, ins_def_constant),
-    'add':   (2, ins_add_value),
-    'sub':   (2, ins_sub_value),
-    'sum':   (-1, ins_sum_values),
+    'set':   (2, inst_set_variable),
+    'def':   (2, inst_def_constant),
+    'add':   (-1, inst_add_value),
+    'sub':   (2, inst_sub_value),
+    'sum':   (-1, inst_sum_values),
     
     # functional
-    'zet':   (-1, ins_set_variable_call),
-    'err':   (-1, ins_error),
-    'mac':   (2, ins_macro),
-    'end':   (-1, ins_end_macro),
-    'ret':   (1, ins_return),
-    'call':  (-1, ins_call_macro),
+    'zet':   (-1, inst_set_variable_call),
+    'err':   (-1, inst_error),
+    'mac':   (2, inst_macro),
+    'end':   (-1, inst_end_macro),
+    'ret':   (-1, inst_return),
+    'call':  (-1, inst_call_macro),
 
     # conditionals
-    'if':    (-1, ins_eval_if),
-    'not':   (-1, ins_eval_if),
+    'if':    (-1, inst_eval_if),
+    'not':   (-1, inst_eval_if),
 
     # std out, in
-    'out':   (-1, ins_stdout),
-    'put':   (1, ins_stdin),
+    'out':   (-1, inst_stdout),
+    'put':   (1, inst_stdin),
     
     # info
-    'type':  (1, ins_typeof),
-    'equ':   (2, ins_is_equal),
-    'lss':   (2, ins_is_less),
-    'gtr':   (2, ins_is_greater),
-    'mem':   (0, ins_get_memory_value),
-    'mem_func': (0, lambda: memory_func),
-    'index': (2, ins_get_index_value),
-    'assign': (3, ins_set_index_value),
+    'type':  (1, inst_typeof),
+    'eq':   (2, inst_is_equal),
+    'lt':   (2, inst_is_less),
+    'gt':   (2, inst_is_greater),
+    'memory':   (0, inst_get_memory_value),
+    'memory.functions': (0, inst_get_memory_functions),
+    'index': (2, inst_get_index_value),
+    'assign': (3, inst_set_index_value),
+    'exist': (-1, inst_variable_exist),
 
     # expand
-    'use':   (1, ins_use_polang_file),
+    'use':   (1, inst_use_polang_file),
     
-    'del':   (-1, ins_delete),
-    'exit':  (1, ins_exit_program),
+    'del':   (-1, inst_delete),
+    'exit':  (1, inst_exit_program),
 }
 
-def interpret_line(line_num: int, ins: str, chunks: list[str]):
+def interpret_line(line_num: int, inst: str, chunks: list[str]):
     tokens = [lex_chunk(c) for c in chunks[1:]]
-    if ins == 'if':
-        ins_eval_if(False, *tokens)
-    elif ins == 'not':
-        ins_eval_if(True, *tokens)
-    elif ins == 'call':
-        if (ret_value := ins_call_macro(*tokens)) is not None:
+    if inst == 'if':
+        inst_eval_if(False, *tokens)
+    elif inst == 'not':
+        inst_eval_if(True, *tokens)
+    elif inst == 'call':
+        if (ret_value := inst_call_macro(*tokens)) is not None:
             return ret_value
-    elif ins == 'ret':
-        return ins_return(*tokens)
-    elif ins == 'exit':
-        ins_exit_program(tokens[0])  
-    elif ins == 'use':
-        ins_use_polang_file(line_num, tokens[0])
+    elif inst == 'ret':
+        return inst_return(*tokens)
+    elif inst == 'exit':
+        inst_exit_program(tokens[0])  
+    elif inst == 'use':
+        inst_use_polang_file(line_num, tokens[0])
     else:
-        instructions[ins][1](*tokens)
+        instructions[inst][1](*tokens)
 
 def evaluate_line(line_num: int, line: str):
     chunks = line.split()
@@ -473,27 +495,27 @@ def evaluate_line(line_num: int, line: str):
         return
     args = len(chunks) - 1
     
-    ic(line_num, line, chunks, args, SCOPE_STACK)
+    # ic(line_num, line, chunks, args, SCOPE_STACK)
     if SCOPE_STACK != []:
         if chunks[0] == 'mac':
             SCOPE_STACK.append(chunks[1])
         elif chunks[0] == 'end':
-            ins_end_macro()
+            inst_end_macro()
         else:
             memory_func[get_active_scope()].code.append(line)
     else:
-        assert (ins := chunks[0]) in instructions.keys(), SYNTAX_ERROR(f'First chunk is not a valid instruction', f'--> {ins}', SCOPE_STACK)
+        assert (inst := chunks[0]) in instructions.keys(), SYNTAX_ERROR(f'First chunk is not a valid instruction', f'--> {inst}', SCOPE_STACK)
         
         # Infinite arguments
-        if (ins_paramc := instructions[ins][0]) < 0:
+        if (inst_paramc := instructions[inst][0]) < 0:
             pass
         
-        elif ins_paramc < args:
-            PARAM_ERROR(f'Too many arguments:', f'{ins}', f'{ins_paramc}', f'{args}')
-        elif ins_paramc > args:
-            PARAM_ERROR(f'Not enough arguments:', f'{ins}', f'{ins_paramc}', f'{args}')
+        elif inst_paramc < args:
+            PARAM_ERROR(f'Too many arguments:', f'{inst}', f'{inst_paramc}', f'{args}')
+        elif inst_paramc > args:
+            PARAM_ERROR(f'Not enough arguments:', f'{inst}', f'{inst_paramc}', f'{args}')
 
-        return interpret_line(line_num, ins, chunks)
+        return interpret_line(line_num, inst, chunks)
         
 def interpret(error_registry: bool, strict_errors: bool):
     file_lines_q = len(file_content)
@@ -507,7 +529,7 @@ def interpret(error_registry: bool, strict_errors: bool):
             err = (f'ln -> {ln + 1}: {ass}')
             if strict_errors:
                 print(err)
-                ins_exit_program(Value(-1))
+                inst_exit_program(Value(-1))
             elif error_registry:
                 errors.append(err)
             else:
@@ -517,7 +539,7 @@ def interpret(error_registry: bool, strict_errors: bool):
         
 def get_file_content(file_path: str):
     with open(file_path, 'r') as file:
-        return file.read().split('\n')   
+        return file.read().split('\n')
         
 def display_usage():
     print('USAGE:')

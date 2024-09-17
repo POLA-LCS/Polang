@@ -6,6 +6,7 @@ def ERROR_FORMAT(name: str, state: opt[str] = None, type: opt[str] = None, messa
     return f"[{name}ERROR] in {state}. {f'{type}' if type is not None else ''}{f':\n    {message}' if message is not None else ''}\n"
     
 def RAISE(error: str):
+    """`assert 0, error`"""
     assert 0, error
     
 def PARAM_ERROR(message: str, state: opt[str], expected, provided):

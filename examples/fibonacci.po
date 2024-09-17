@@ -1,0 +1,27 @@
+mac fibonacci 3
+    set top $1
+    set next $2
+    out top
+    out
+    zet next add top next
+    zet expr lt top $3
+
+    if expr call fibonacci top next $3
+
+    ret top
+end
+
+% Test
+% call fibonacci 1 1 1000
+
+% Syntax explanation:
+
+% declare a macro called "fibonacci" that takes 3 arguments
+% set the first argument to the variable  "top" (1)
+% set the second argument to the variable "next (1)
+% print top
+% print a next line
+% set the variable "next" to the last value before adding "next" to "top"
+% set the variable "expr" to the result of the comparisson (top < [third argument])
+% if the value is 1 calls "fibonacci" with the arguments "top", "next" and [third argument]
+% delete the variable "top", "next" and "expr"
