@@ -76,4 +76,4 @@ Polang offers several built-in instructions (functions), each with specific beha
 
 ### Hello World
 ```polang
-out 'Hello, World!'
+out 'Hello,' . 'World!'
