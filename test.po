@@ -1,0 +1,19 @@
+mac Foo 2
+    method $1 print
+    method $1 add
+    set $1.value $2
+
+    mac print 1
+        out $1.value
+        out
+    end
+
+    mac add 2
+        add $1.value $2
+    end
+end
+
+call Foo pepito 50
+
+call pepito.add 20
+call pepito.print

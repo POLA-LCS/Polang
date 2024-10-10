@@ -39,6 +39,7 @@ def is_float(number: int | float):
 EXTENSION = '.po'
 RUNNING = True
 EXIT_CODE = 0
+X = -1
 
 SCOPE_STACK: list[str] = []
 def get_active_scope() -> (str | None):
@@ -307,12 +308,13 @@ def inst_end_macro():
 import re
 
 # Format a line to match the arguments
-def format_line(line: str, func_name: str, *args: Value):
+def format_line(line: str, func_name: str, *args: Value | str):
+    # ic(line, func_name, args)
     chunk_list = line.split(' ')
     for c, chunk in enumerate(chunk_list):
         if (match := re.match(r'\$(\d+)', chunk)) is not None:
             for g in match.groups():
-                if (template_num := int(g)) > len(args) and memory_macros[func_name][0] > -1:
+                if (template_num := int(g)) > len(args) and memory_macros[func_name][0] > X:
                     RAISE(ERROR_FORMAT('FUNCTION ', 'FUNCTION EXECUTION', 'Template argument exceed the total of arguments'))
                 try:
                     replace_arg = args[template_num - 1]
@@ -336,7 +338,7 @@ def format_line(line: str, func_name: str, *args: Value):
 # CALL
 def inst_call_macro(name: str, *argv):
     assert (func := memory_macros.get(name)) is not None, ERROR_FORMAT('FUNC ', 'CALL', None, f'Object is not callable: {name}')
-    if func.argc > -1 and len(argv) > func.argc:
+    if func.argc > X and len(argv) > func.argc:
         PARAM_ERROR('Too many arguments in user function call', f'{name}', func.argc, len(argv))
     for l, line in enumerate(func.code):
         exe_line = format_line(line, name, *argv)
@@ -393,7 +395,7 @@ def inst_set_index_value(sizeable: Data, index_value: Data, new_value: Data):
 def inst_eval_if(negate: bool, expression_value: Data, func: str, *args):
     expression_value = check_variable('IF EVAL', expression_value)
     assert (return_function := instructions.get(func)) is not None, NAME_ERROR(func, 'NOT CONDITION' if negate else 'IF CONDITION')
-    if (argc := len(args)) > return_function[0] and return_function[0] > -1:
+    if (argc := len(args)) > return_function[0] and return_function[0] > X:
         PARAM_ERROR('Too many arguments', 'IF CONDITION CALL', return_function[0], argc)
     if argc < return_function[0]:
         PARAM_ERROR('Not enough arguments', 'IF CONDITION CALL', return_function[0], argc)
@@ -425,8 +427,9 @@ def inst_assign_method(name: str, *macros: str):
             global SCOPE_STACK
             SCOPE_STACK.pop()
             for line in memory_macros[mac].code:
-                memory_macros[new_name].code.append(line.replace('$1', name))
-            inst_delete(mac)
+                memory_macros[new_name].code.append(
+                    format_line(line, mac, name, *[f'${i}' for i in range(1, memory_macros[mac].argc + 1)])
+                )
 
 # VERIFIES IF A CHUNK IS SOMETHING
 def lex_chunk(chunk: str) -> (Value | str):
@@ -441,7 +444,6 @@ def lex_chunk(chunk: str) -> (Value | str):
     else:
         return chunk
 
-X = -1
 instructions: dict[str, tuple[int, function]] = {
     # setters
     'set':   (2, inst_set_variable),
