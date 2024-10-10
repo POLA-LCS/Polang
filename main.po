@@ -1,6 +1,33 @@
-% TODO list: 
-% - Fix the return bug.
-% - Make a real for
-% - Make a real while
-% - Create a way to create blocks inside blocks(statements)
+mac Coord.init.def 1
+    set $1.x 0
+    set $2.y 0
+end
 
+mac Coord.init 3
+    set $1.x $2
+    set $1.y $3
+end
+
+mac Coord.swap 1
+    zet x $1.x
+    zet y $1.y
+    set $1.x y
+    set $1.y x
+end
+
+mac Coord.get 1
+    set $1 []
+    add $1 $1.x $1.y
+    ret $1
+end
+
+mac List.convert.Coord 1
+    call Coord.get $1
+    del $1.x $1.y
+end
+
+call Coord.init punto 20 50
+
+zet punto Coord.get punto
+
+out punto

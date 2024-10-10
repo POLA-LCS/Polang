@@ -13,7 +13,7 @@ def get_number(number: str) -> (Number | None):
     except ValueError:
         return None
 
-def check_variable(instruction: str, data: str | Data) -> Value:
+def check_variable(instruction: str, data: Data) -> Value:
     if isinstance(data, str):
         var = memory.get(data)
         assert var is not None, NAME_ERROR(data, instruction)
@@ -61,11 +61,11 @@ memory: dict[str, Value] = {
     NONE:   Value(None, True),
     'true':  Value(1, True),
     'false': Value(0, True),
-    'POLANG_VERSION': Value('1.10.2'),
-    'NICE': Value(69),
+    'POLANG_VERSION': Value('1.10.2', True),
+    'NICE': Value(69, True),
 }
 
-memory_func: dict[str, Macro] = {    
+memory_macro: dict[str, Macro] = {    
     'while': Macro(4, [
         'zet while.expr $1 $2 $3',
         'if while.expr call $4',
@@ -74,7 +74,7 @@ memory_func: dict[str, Macro] = {
     
     'for': Macro(3, [
         'set for.i $1',
-        'zet for.expr lss $1 $2',
+        'zet for.expr lt $1 $2',
         'if for.expr call $3',
         'add for.i 1',
         'if for.expr call for for.i $2 $3',
@@ -105,7 +105,7 @@ def inst_add_value(name: str, *add_value: Data):
     assert not left.const, LOGIC_ERROR('Constant assignment', f'Trying to add a value to a constant: {left}', 'ADD') 
     right = [check_variable('ADD', av) for av in add_value]
 
-    inst_return = left.value # Cach the last value before addition
+    inst_return = left.value # Catch the last value before addition
 
     if left.type == NUMBER:
         for val in right:
@@ -273,8 +273,8 @@ def inst_delete(*names: str):
             warnings.append(f'Trying to DELETE not a name: {n}') 
         elif n in memory:
             memory.pop(n)
-        elif n in memory_func:
-            memory_func.pop(n)
+        elif n in memory_macro:
+            memory_macro.pop(n)
         else:
             warnings.append(f'Trying to DELETE an unknown name: {n}')
 
@@ -285,9 +285,9 @@ def inst_error(*args):
 # MAC 
 def inst_macro(name: str, cant_arguments: Value | None):
     assert name not in memory, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'There\'s already a variable called', f'{name}')
-    assert name not in memory_func, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'Macro already exists', f'{name}')
+    assert name not in memory_macro, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'Macro already exists', f'{name}')
     
-    memory_func[name] = Macro(
+    memory_macro[name] = Macro(
         cant_arguments.value if cant_arguments is not None else -1,
         [],
     )
@@ -312,7 +312,7 @@ def format_line(line: str, func_name: str, *args: Value):
     for c, chunk in enumerate(chunk_list):
         if (match := re.match(r'\$(\d+)', chunk)) is not None:
             for g in match.groups():
-                if (template_num := int(g)) > len(args) and memory_func[func_name][0] > -1:
+                if (template_num := int(g)) > len(args) and memory_macro[func_name][0] > -1:
                     RAISE(ERROR_FORMAT('FUNCTION ', 'FUNCTION EXECUTION', 'Template argument exceed the total of arguments'))
                 try:
                     replace_arg = args[template_num - 1]
@@ -335,7 +335,7 @@ def format_line(line: str, func_name: str, *args: Value):
                 
 # CALL
 def inst_call_macro(name: str, *argv):
-    assert (func := memory_func.get(name)) is not None, ERROR_FORMAT('FUNC ', 'CALL', None, f'Object is not callable: {name}')
+    assert (func := memory_macro.get(name)) is not None, ERROR_FORMAT('FUNC ', 'CALL', None, f'Object is not callable: {name}')
     if func.argc > -1 and len(argv) > func.argc:
         PARAM_ERROR('Too many arguments in user function call', f'{name}', func.argc, len(argv))
     for l, line in enumerate(func.code):
@@ -354,7 +354,7 @@ def inst_get_memory_value():
 # MEMORY.FUNCTIONS
 def inst_get_memory_functions():
     func_str = ''
-    for key, val in memory_func.items():
+    for key, val in memory_macro.items():
         func_str += f'{key} -> {val}\n'
     return Value(func_str, True)
 
@@ -457,7 +457,7 @@ instructions: dict[str, tuple[int, function]] = {
     'lt':   (2, inst_is_less),
     'gt':   (2, inst_is_greater),
     'memory':   (0, inst_get_memory_value),
-    'memory.functions': (0, inst_get_memory_functions),
+    'memory.func': (0, inst_get_memory_functions),
     'index': (2, inst_get_index_value),
     'assign': (3, inst_set_index_value),
     'exist': (-1, inst_variable_exist),
@@ -502,7 +502,7 @@ def evaluate_line(line_num: int, line: str):
         elif chunks[0] == 'end':
             inst_end_macro()
         else:
-            memory_func[get_active_scope()].code.append(line)
+            memory_macro[get_active_scope()].code.append(line)
     else:
         assert (inst := chunks[0]) in instructions.keys(), SYNTAX_ERROR(f'First chunk is not a valid instruction', f'--> {inst}', SCOPE_STACK)
         

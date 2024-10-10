@@ -12,23 +12,22 @@ mac List.init.fill 2
     set List.list list
     set List.value $2
     call for 0 $1 List.add
+    del List.value List.times for.i for.expr
     ret List.list
-    del List.list List.value List.times
 end
 
 mac List.init 1
     zet List.init.value call List.init.fill $1 none
     ret List.init.value
-    del List.init.value
 end
 
-mac std::range.code 0
-    add std::range.list for.i
+mac range.code 0
+    add range.list for.i
 end
 
-mac std::range 2
-    set std::range.list []
-    call for $1 $2 std::range.code
-    ret std::range.list
-    del std::range.list for.i
+mac range 2
+    set range.list []
+    call for $1 $2 range.code
+    del for.i
+    ret range.list
 end
