@@ -452,15 +452,15 @@ instructions: dict[str, tuple[int, function]] = {
     'put':   (1, inst_stdin),
     
     # info
-    'type':  (1, inst_typeof),
-    'eq':   (2, inst_is_equal),
-    'lt':   (2, inst_is_less),
-    'gt':   (2, inst_is_greater),
-    'memory':   (0, inst_get_memory_value),
+    'type':    (1, inst_typeof),
+    'eq':      (2, inst_is_equal),
+    'lt':      (2, inst_is_less),
+    'gt':      (2, inst_is_greater),
+    'memory':  (0, inst_get_memory_value),
     'memory.func': (0, inst_get_memory_functions),
-    'index': (2, inst_get_index_value),
-    'assign': (3, inst_set_index_value),
-    'exist': (-1, inst_variable_exist),
+    'index':   (2, inst_get_index_value),
+    'assign':  (3, inst_set_index_value),
+    'exist':   (-1, inst_variable_exist),
 
     # expand
     'use':   (1, inst_use_polang_file),
@@ -495,16 +495,15 @@ def evaluate_line(line_num: int, line: str):
         return
     args = len(chunks) - 1
     
-    # ic(line_num, line, chunks, args, SCOPE_STACK)
-    if SCOPE_STACK != []:
+    if len(SCOPE_STACK) > 0:
         if chunks[0] == 'mac':
-            SCOPE_STACK.append(chunks[1])
+            inst_macro(*[lex_chunk(chunk) for chunk in chunks[1:]])
         elif chunks[0] == 'end':
             inst_end_macro()
         else:
             memory_macro[get_active_scope()].code.append(line)
     else:
-        assert (inst := chunks[0]) in instructions.keys(), SYNTAX_ERROR(f'First chunk is not a valid instruction', f'--> {inst}', SCOPE_STACK)
+        assert (inst := chunks[0]) in instructions.keys(), SYNTAX_ERROR(f'First chunk is not a valid instruction', f'--> {inst}', SCOPE_STACK[-1] if SCOPE_STACK != [] else 'GLOBAL')
         
         # Infinite arguments
         if (inst_paramc := instructions[inst][0]) < 0:

@@ -1,33 +1,33 @@
-mac Coord.init.def 1
-    set $1.x 0
-    set $2.y 0
-end
+mac Pair 3
+    mac Pair.delete 1
+        del $1.first $1.second Pair.delete
+    end
 
-mac Coord.init 3
-    set $1.x $2
-    set $1.y $3
-end
+    mac Pair.set_first 2
+        set $1.first $2
+        assign $1 0 $2
+    end
 
-mac Coord.swap 1
-    zet x $1.x
-    zet y $1.y
-    set $1.x y
-    set $1.y x
-end
+    mac Pair.set_second 2
+        set $1.second $2
+        assign $1 1 $2
+    end
 
-mac Coord.get 1
+    set $1.first $2
+    set $1.second $3
     set $1 []
-    add $1 $1.x $1.y
-    ret $1
+    add $1 $1.first $1.second
 end
 
-mac List.convert.Coord 1
-    call Coord.get $1
-    del $1.x $1.y
-end
+% "Declare" a pair
+call Pair coord 18 36
 
-call Coord.init punto 20 50
+out coord.first . coord.second
+out
 
-zet punto Coord.get punto
+call Pair.set_first coord 24
+call Pair.set_second coord 45
 
-out punto
+zet coord_sum sum coord.first coord.second
+
+out coord_sum
