@@ -65,7 +65,7 @@ memory: dict[str, Value] = {
     'NICE': Value(69, True),
 }
 
-memory_macro: dict[str, Macro] = {    
+memory_macros: dict[str, Macro] = {    
     'while': Macro(4, [
         'zet while.expr $1 $2 $3',
         'if while.expr call $4',
@@ -273,8 +273,8 @@ def inst_delete(*names: str):
             warnings.append(f'Trying to DELETE not a name: {n}') 
         elif n in memory:
             memory.pop(n)
-        elif n in memory_macro:
-            memory_macro.pop(n)
+        elif n in memory_macros:
+            memory_macros.pop(n)
         else:
             warnings.append(f'Trying to DELETE an unknown name: {n}')
 
@@ -285,9 +285,9 @@ def inst_error(*args):
 # MAC 
 def inst_macro(name: str, cant_arguments: Value | None):
     assert name not in memory, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'There\'s already a variable called', f'{name}')
-    assert name not in memory_macro, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'Macro already exists', f'{name}')
+    assert name not in memory_macros, ERROR_FORMAT('NAME ', 'MAC DECLARATION', f'Macro already exists', f'{name}')
     
-    memory_macro[name] = Macro(
+    memory_macros[name] = Macro(
         cant_arguments.value if cant_arguments is not None else -1,
         [],
     )
@@ -312,7 +312,7 @@ def format_line(line: str, func_name: str, *args: Value):
     for c, chunk in enumerate(chunk_list):
         if (match := re.match(r'\$(\d+)', chunk)) is not None:
             for g in match.groups():
-                if (template_num := int(g)) > len(args) and memory_macro[func_name][0] > -1:
+                if (template_num := int(g)) > len(args) and memory_macros[func_name][0] > -1:
                     RAISE(ERROR_FORMAT('FUNCTION ', 'FUNCTION EXECUTION', 'Template argument exceed the total of arguments'))
                 try:
                     replace_arg = args[template_num - 1]
@@ -335,7 +335,7 @@ def format_line(line: str, func_name: str, *args: Value):
                 
 # CALL
 def inst_call_macro(name: str, *argv):
-    assert (func := memory_macro.get(name)) is not None, ERROR_FORMAT('FUNC ', 'CALL', None, f'Object is not callable: {name}')
+    assert (func := memory_macros.get(name)) is not None, ERROR_FORMAT('FUNC ', 'CALL', None, f'Object is not callable: {name}')
     if func.argc > -1 and len(argv) > func.argc:
         PARAM_ERROR('Too many arguments in user function call', f'{name}', func.argc, len(argv))
     for l, line in enumerate(func.code):
@@ -354,7 +354,7 @@ def inst_get_memory_value():
 # MEMORY.FUNCTIONS
 def inst_get_memory_functions():
     func_str = ''
-    for key, val in memory_macro.items():
+    for key, val in memory_macros.items():
         func_str += f'{key} -> {val}\n'
     return Value(func_str, True)
 
@@ -414,6 +414,20 @@ def inst_return(*name_value: str | Data) -> Value:
 def inst_variable_exist(*names: str) -> int:
     return Value(int(all([n in memory for n in names])))
 
+# METHOD
+def inst_assign_method(name: str, *macros: str):
+    for mac in macros:
+        if mac not in memory_macros:
+            warnings.append(f'Not existing macro cannot be a method... ({mac}).')
+        else:
+            new_name = name + '.' + mac
+            inst_macro(new_name, Value(memory_macros[mac].argc - 1))
+            global SCOPE_STACK
+            SCOPE_STACK.pop()
+            for line in memory_macros[mac].code:
+                memory_macros[new_name].code.append(line.replace('$1', name))
+            inst_delete(mac)
+
 # VERIFIES IF A CHUNK IS SOMETHING
 def lex_chunk(chunk: str) -> (Value | str):
     if (chunk[0] == '\'') and (chunk[-1] == '\''):
@@ -427,45 +441,49 @@ def lex_chunk(chunk: str) -> (Value | str):
     else:
         return chunk
 
+X = -1
 instructions: dict[str, tuple[int, function]] = {
     # setters
     'set':   (2, inst_set_variable),
     'def':   (2, inst_def_constant),
-    'add':   (-1, inst_add_value),
+    'add':   (X, inst_add_value),
     'sub':   (2, inst_sub_value),
-    'sum':   (-1, inst_sum_values),
+    'sum':   (X, inst_sum_values),
     
     # functional
-    'zet':   (-1, inst_set_variable_call),
-    'err':   (-1, inst_error),
-    'mac':   (2, inst_macro),
-    'end':   (-1, inst_end_macro),
-    'ret':   (-1, inst_return),
-    'call':  (-1, inst_call_macro),
+    'zet':    (X, inst_set_variable_call),
+    'err':    (X, inst_error),
+    'mac':    (2, inst_macro),
+    'end':    (X, inst_end_macro),
+    'ret':    (X, inst_return),
+    'call':   (X, inst_call_macro),
+    'method': (X, inst_assign_method),
 
     # conditionals
-    'if':    (-1, inst_eval_if),
-    'not':   (-1, inst_eval_if),
+    'if':    (X, inst_eval_if),
+    'not':   (X, inst_eval_if),
 
     # std out, in
-    'out':   (-1, inst_stdout),
+    'out':   (X, inst_stdout),
     'put':   (1, inst_stdin),
     
     # info
-    'type':    (1, inst_typeof),
-    'eq':      (2, inst_is_equal),
-    'lt':      (2, inst_is_less),
-    'gt':      (2, inst_is_greater),
-    'memory':  (0, inst_get_memory_value),
+    'type':        (1, inst_typeof),
+    'eq':          (2, inst_is_equal),
+    'lt':          (2, inst_is_less),
+    'gt':          (2, inst_is_greater),
+    'exist':       (X, inst_variable_exist),
+    
+    'memory':      (0, inst_get_memory_value),
     'memory.func': (0, inst_get_memory_functions),
-    'index':   (2, inst_get_index_value),
-    'assign':  (3, inst_set_index_value),
-    'exist':   (-1, inst_variable_exist),
+    
+    'index':       (2, inst_get_index_value),
+    'assign':      (3, inst_set_index_value),
 
     # expand
     'use':   (1, inst_use_polang_file),
     
-    'del':   (-1, inst_delete),
+    'del':   (X, inst_delete),
     'exit':  (1, inst_exit_program),
 }
 
@@ -501,7 +519,7 @@ def evaluate_line(line_num: int, line: str):
         elif chunks[0] == 'end':
             inst_end_macro()
         else:
-            memory_macro[get_active_scope()].code.append(line)
+            memory_macros[get_active_scope()].code.append(line)
     else:
         assert (inst := chunks[0]) in instructions.keys(), SYNTAX_ERROR(f'First chunk is not a valid instruction', f'--> {inst}', SCOPE_STACK[-1] if SCOPE_STACK != [] else 'GLOBAL')
         

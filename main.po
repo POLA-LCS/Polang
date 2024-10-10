@@ -1,14 +1,23 @@
 mac Pair 3
-    mac Pair.delete 1
-        del $1.first $1.second Pair.delete
+    method $1 destructor
+    method $1 print
+    method $1 set_second
+    method $1 set_first
+
+    mac destructor 1
+        del $1.first $1.second $1.set_first $1.set_second
     end
 
-    mac Pair.set_first 2
+    mac print 1
+        out 'Pair:' . $1.first . $1.second
+    end
+
+    mac set_first 2
         set $1.first $2
         assign $1 0 $2
     end
 
-    mac Pair.set_second 2
+    mac set_second 2
         set $1.second $2
         assign $1 1 $2
     end
@@ -19,15 +28,6 @@ mac Pair 3
     add $1 $1.first $1.second
 end
 
-% "Declare" a pair
-call Pair coord 18 36
+call Pair par 20 50
 
-out coord.first . coord.second
-out
-
-call Pair.set_first coord 24
-call Pair.set_second coord 45
-
-zet coord_sum sum coord.first coord.second
-
-out coord_sum
+call par.print
