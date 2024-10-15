@@ -21,11 +21,11 @@ mac List.init 1
     ret List.init.value
 end
 
-mac range.code 0
-    add range.list for.i
-end
-
 mac range 2
+    mac range.code 0
+        add range.list for.i
+    end
+    
     set range.list []
     call for $1 $2 range.code
     del for.i
