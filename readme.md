@@ -1,6 +1,6 @@
 # Polang - A Simple Macro-Based Language
 
-## This is a work in progress programming language, it is not ready yet, use it as your own risk, this is going to have a refactorization soon, wait for (future repository)[https://github/POLA-LCS/Polang-v2] to come.
+## This is a work in progress programming language, it is not ready yet, use it as your own risk, this is going to have a refactorization soon, wait for [future repository](https://github/POLA-LCS/Polang-v2) to come.
 
 ## Introduction
 Polang is a lightweight interpreted programming language built around a macro system. The language allows for basic operations, variable manipulation, and macro-based control flow structures like loops and conditionals. Polang supports dynamic typing, handling various data types such as numbers, strings, and lists.
